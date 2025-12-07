@@ -1,0 +1,460 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "VoiceOwl Transcription API",
+    "version": "1.0.0",
+    "description": "A minimal API service that accepts audio file URLs, performs transcription (mock or Azure Speech-to-Text), and stores results in MongoDB.",
+    "contact": {
+      "name": "VoiceOwl API Support"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Health check endpoints"
+    },
+    {
+      "name": "Transcriptions",
+      "description": "Transcription management endpoints"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check endpoint",
+        "description": "Returns the health status of the API server",
+        "tags": ["Health"],
+        "responses": {
+          "200": {
+            "description": "Server is healthy and running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                },
+                "example": {
+                  "status": "ok",
+                  "timestamp": "2024-01-15T10:30:00.000Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transcription": {
+      "post": {
+        "summary": "Create a transcription using mock transcription service",
+        "description": "Accepts an audio file URL, mocks the download, generates a dummy transcription, and stores it in MongoDB",
+        "tags": ["Transcriptions"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranscriptionRequest"
+              },
+              "examples": {
+                "example1": {
+                  "summary": "Example request",
+                  "value": {
+                    "audioUrl": "https://files.luvvoice.com/luvvoice.com-20251203-KaACCS.mp3"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Transcription created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptionResponse"
+                },
+                "example": {
+                  "id": "507f1f77bcf86cd799439011",
+                  "message": "Transcription created successfully"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error - Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "message": "Validation failed",
+                    "details": [
+                      {
+                        "msg": "audioUrl must be a valid HTTP/HTTPS URL",
+                        "param": "audioUrl"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "message": "Internal Server Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transcriptions": {
+      "get": {
+        "summary": "Get transcriptions from the last N days",
+        "description": "Retrieves all transcriptions created within the specified number of days (default: 30 days)",
+        "tags": ["Transcriptions"],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "minimum": 1,
+              "maximum": 365
+            },
+            "description": "Number of days to look back (default: 30, max: 365)",
+            "example": 30
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of transcriptions retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptionsResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Successful response with transcriptions",
+                    "value": {
+                      "count": 2,
+                      "transcriptions": [
+                        {
+                          "_id": "507f1f77bcf86cd799439011",
+                          "audioUrl": "https://files.luvvoice.com/luvvoice.com-20251203-KaACCS.mp3",
+                          "transcription": "transcribed text",
+                          "source": "default",
+                          "createdAt": "2024-01-15T10:30:00.000Z"
+                        },
+                        {
+                          "_id": "507f1f77bcf86cd799439012",
+                          "audioUrl": "https://files.luvvoice.com/luvvoice.com-20251203-KaACCS.mp3",
+                          "transcription": "Azure transcribed text",
+                          "source": "azure",
+                          "language": "en-US",
+                          "createdAt": "2024-01-14T10:30:00.000Z"
+                        }
+                      ]
+                    }
+                  },
+                  "empty": {
+                    "summary": "No transcriptions found",
+                    "value": {
+                      "count": 0,
+                      "transcriptions": []
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "message": "Internal Server Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/azure-transcription": {
+      "post": {
+        "summary": "Create a transcription using Azure Speech-to-Text service",
+        "description": "Accepts an audio file URL, uses Azure Speech-to-Text API to transcribe (or falls back to mock if Azure is not configured), and stores the result in MongoDB",
+        "tags": ["Transcriptions"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AzureTranscriptionRequest"
+              },
+              "examples": {
+                "english": {
+                  "summary": "English transcription",
+                  "value": {
+                    "audioUrl": "https://files.luvvoice.com/luvvoice.com-20251203-KaACCS.mp3",
+                    "language": "en-US"
+                  }
+                },
+                "french": {
+                  "summary": "French transcription",
+                  "value": {
+                    "audioUrl": "https://example.com/sample-fr.mp3",
+                    "language": "fr-FR"
+                  }
+                },
+                "defaultLanguage": {
+                  "summary": "Default language (en-US)",
+                  "value": {
+                    "audioUrl": "https://files.luvvoice.com/luvvoice.com-20251203-KaACCS.mp3"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Azure transcription created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptionResponse"
+                },
+                "example": {
+                  "id": "507f1f77bcf86cd799439011",
+                  "message": "Azure transcription created successfully",
+                  "source": "azure"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error - Invalid request body or language format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalidUrl": {
+                    "summary": "Invalid audio URL",
+                    "value": {
+                      "error": {
+                        "message": "Validation failed",
+                        "details": [
+                          {
+                            "msg": "audioUrl must be a valid HTTP/HTTPS URL",
+                            "param": "audioUrl"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "invalidLanguage": {
+                    "summary": "Invalid language format",
+                    "value": {
+                      "error": {
+                        "message": "Validation failed",
+                        "details": [
+                          {
+                            "msg": "language must be in format like en-US, fr-FR",
+                            "param": "language"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error or Azure API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "message": "Azure transcription timeout"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TranscriptionRequest": {
+        "type": "object",
+        "required": ["audioUrl"],
+        "properties": {
+          "audioUrl": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://files.luvvoice.com/luvvoice.com-20251203-KaACCS.mp3",
+            "description": "URL of the audio file to transcribe"
+          }
+        }
+      },
+      "AzureTranscriptionRequest": {
+        "type": "object",
+        "required": ["audioUrl"],
+        "properties": {
+          "audioUrl": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://files.luvvoice.com/luvvoice.com-20251203-KaACCS.mp3",
+            "description": "URL of the audio file to transcribe"
+          },
+          "language": {
+            "type": "string",
+            "pattern": "^[a-z]{2}-[A-Z]{2}$",
+            "example": "en-US",
+            "description": "Language code in format like en-US, fr-FR, es-ES",
+            "default": "en-US"
+          }
+        }
+      },
+      "TranscriptionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "507f1f77bcf86cd799439011",
+            "description": "MongoDB document ID"
+          },
+          "message": {
+            "type": "string",
+            "example": "Transcription created successfully"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["default", "azure"],
+            "example": "azure",
+            "description": "Source of transcription (only present for Azure transcriptions)"
+          }
+        }
+      },
+      "Transcription": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "example": "507f1f77bcf86cd799439011"
+          },
+          "audioUrl": {
+            "type": "string",
+            "example": "https://files.luvvoice.com/luvvoice.com-20251203-KaACCS.mp3"
+          },
+          "transcription": {
+            "type": "string",
+            "example": "transcribed text"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["default", "azure"],
+            "example": "default"
+          },
+          "language": {
+            "type": "string",
+            "example": "en-US"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-01-15T10:30:00.000Z"
+          }
+        }
+      },
+      "TranscriptionsResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number",
+            "example": 2
+          },
+          "transcriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Transcription"
+            }
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-01-15T10:30:00.000Z"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string",
+                "example": "Validation failed"
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "stack": {
+                "type": "string",
+                "description": "Stack trace (only in development mode)"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
