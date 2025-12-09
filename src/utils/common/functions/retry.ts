@@ -1,4 +1,8 @@
-import { RetryOptions } from '../types';
+export interface RetryOptions {
+  maxAttempts: number;
+  delayMs: number;
+  exponentialBackoff?: boolean;
+}
 
 export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
@@ -25,6 +29,5 @@ export async function retryWithBackoff<T>(
     }
   }
 
-  throw lastError || new Error('Retry failed');
+  throw lastError || new Error("Retry failed");
 }
-

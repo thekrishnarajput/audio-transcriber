@@ -11,7 +11,7 @@ export interface TranscriptionDocument {
   _id?: string;
   audioUrl: string;
   transcription: string;
-  source?: 'default' | 'azure';
+  source?: "default" | "azure";
   language?: string;
   createdAt: Date;
 }
@@ -20,10 +20,3 @@ export interface AzureTranscriptionRequest {
   audioUrl: string;
   language?: string;
 }
-
-export interface RetryOptions {
-  maxAttempts: number;
-  delayMs: number;
-  exponentialBackoff?: boolean;
-}
-

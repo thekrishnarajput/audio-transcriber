@@ -48,7 +48,7 @@
         }
       }
     },
-    "/transcription": {
+    "/api/transcription": {
       "post": {
         "summary": "Create a transcription using mock transcription service",
         "description": "Accepts an audio file URL, mocks the download, generates a dummy transcription, and stores it in MongoDB",
@@ -125,7 +125,7 @@
         }
       }
     },
-    "/transcriptions": {
+    "/api/transcriptions": {
       "get": {
         "summary": "Get transcriptions from the last N days",
         "description": "Retrieves all transcriptions created within the specified number of days (default: 30 days)",
@@ -205,7 +205,7 @@
         }
       }
     },
-    "/azure-transcription": {
+    "/api/azure-transcription": {
       "post": {
         "summary": "Create a transcription using Azure Speech-to-Text service",
         "description": "Accepts an audio file URL, uses Azure Speech-to-Text API to transcribe (or falls back to mock if Azure is not configured), and stores the result in MongoDB",

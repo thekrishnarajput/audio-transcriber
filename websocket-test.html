@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceOwl WebSocket Test</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .log {
+            background-color: #f5f5f5;
+            padding: 10px;
+            margin-top: 20px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #4CAF50;
+            padding-left: 10px;
+        }
+        .log-error {
+            border-left-color: #f44336;
+        }
+        .log-info {
+            border-left-color: #2196F3;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            width: 300px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>VoiceOwl WebSocket Streaming Test</h1>
+        
+        <div>
+            <label>Server URL:</label>
+            <input type="text" id="serverUrl" value="http://localhost:3000" />
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button id="connectBtn" onclick="connect()">Connect</button>
+            <button id="startBtn" onclick="startSession()" disabled>Start Session</button>
+            <button id="sendChunkBtn" onclick="sendChunk()" disabled>Send Audio Chunk</button>
+            <button id="endBtn" onclick="endSession()" disabled>End Session</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let socket = null;
+        let sessionId = null;
+        let chunkIndex = 0;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            log(`Connecting to ${serverUrl}...`, 'info');
+            
+            socket = io(serverUrl);
+            
+            socket.on('connect', () => {
+                log('✅ Connected to WebSocket server', 'info');
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                document.getElementById('startBtn').disabled = false;
+            });
+
+            socket.on('session:created', (data) => {
+                sessionId = data.sessionId;
+                log(`📝 Session created: ${sessionId}`, 'info');
+            });
+
+            socket.on('session:started', (data) => {
+                log(`🚀 Session started: ${JSON.stringify(data)}`, 'info');
+                document.getElementById('sendChunkBtn').disabled = false;
+                document.getElementById('endBtn').disabled = false;
+                chunkIndex = 0;
+            });
+
+            socket.on('transcription:partial', (event) => {
+                log(`📝 Partial: "${event.data.partial}"`, 'info');
+            });
+
+            socket.on('transcription:final', (event) => {
+                log(`✅ Final: "${event.data.transcription}"`, 'info');
+            });
+
+            socket.on('session:ended', (data) => {
+                log(`🏁 Session ended: ${JSON.stringify(data)}`, 'info');
+                document.getElementById('sendChunkBtn').disabled = true;
+                document.getElementById('endBtn').disabled = true;
+            });
+
+            socket.on('transcription:error', (event) => {
+                log(`❌ Error: ${event.data.message}`, 'error');
+            });
+
+            socket.on('disconnect', () => {
+                log('🔌 Disconnected from server', 'info');
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('sendChunkBtn').disabled = true;
+                document.getElementById('endBtn').disabled = true;
+            });
+
+            socket.on('connect_error', (error) => {
+                log(`❌ Connection error: ${error.message}`, 'error');
+            });
+        }
+
+        function startSession() {
+            if (!socket || !socket.connected) {
+                log('❌ Not connected to server', 'error');
+                return;
+            }
+            log('Starting session...', 'info');
+            socket.emit('session:start', { audioUrl: 'https://example.com/test.mp3' });
+        }
+
+        function sendChunk() {
+            if (!socket || !socket.connected) {
+                log('❌ Not connected to server', 'error');
+                return;
+            }
+            log(`Sending chunk ${chunkIndex}...`, 'info');
+            socket.emit('audio:chunk', {
+                chunk: `mock_audio_chunk_${chunkIndex}`,
+                chunkIndex: chunkIndex,
+                sessionId: sessionId
+            });
+            chunkIndex++;
+        }
+
+        function endSession() {
+            if (!socket || !socket.connected) {
+                log('❌ Not connected to server', 'error');
+                return;
+            }
+            log('Ending session...', 'info');
+            socket.emit('session:end');
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                sessionId = null;
+                chunkIndex = 0;
+                log('Disconnected', 'info');
+            }
+        }
+    </script>
+</body>
+</html>
+

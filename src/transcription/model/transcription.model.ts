@@ -1,9 +1,9 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document } from "mongoose";
 
 export interface ITranscription extends Document {
   audioUrl: string;
   transcription: string;
-  source: 'default' | 'azure';
+  source: "default" | "azure";
   language?: string;
   createdAt: Date;
 }
@@ -21,13 +21,13 @@ const TranscriptionSchema = new Schema<ITranscription>(
     },
     source: {
       type: String,
-      enum: ['default', 'azure'],
-      default: 'default',
+      enum: ["default", "azure"],
+      default: "default",
       index: true,
     },
     language: {
       type: String,
-      default: 'en-US',
+      default: "en-US",
     },
     createdAt: {
       type: Date,
@@ -48,7 +48,6 @@ TranscriptionSchema.index({ createdAt: -1 });
 TranscriptionSchema.index({ source: 1, createdAt: -1 });
 
 export const Transcription = mongoose.model<ITranscription>(
-  'Transcription',
+  "Transcription",
   TranscriptionSchema
 );
-
